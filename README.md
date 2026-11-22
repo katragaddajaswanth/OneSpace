@@ -160,7 +160,7 @@ ONE-SPACE follows a modular application architecture built around Next.js and Po
 
 ### High-Level Architecture
 
-```mermaid
+
 flowchart TB
     U["University Community"]
 
@@ -175,9 +175,7 @@ flowchart TB
     end
 
     U --> Roles
-
     Roles --> UI["Next.js Application"]
-
     UI --> API["Application API Layer"]
 
     API --> AUTH["Authentication & Authorization"]
@@ -188,8 +186,6 @@ flowchart TB
     AUTH --> DB
     ERP --> MOCK["Mock ERP Adapter"]
 
-    API --> EMAIL["Email & OTP Services"]
-```
 
 ### Authentication & Authorization
 
