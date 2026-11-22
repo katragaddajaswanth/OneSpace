@@ -1,0 +1,21 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { dashboardRouteDestinations } from "@/components/layout/navigation";
+import { ActionControl } from "@/components/ui/ActionControl";
+import { LuminousAvatar } from "@/components/icons/LuminousAvatar";
+import AnimatedCompletion from "@/components/ui/AnimatedCompletion";
+import { Skeleton } from "@/components/ui/Feedback";
+
+type Project = { id: string; title: string; category: string; status: string; _count: { members: number } };
+
+export default function RightSidebar() {
+  const [projects, setProjects] = useState<Project[]>([]); const [completion, setCompletion] = useState(0); const [profileName, setProfileName] = useState(""); const [profilePhoto, setProfilePhoto] = useState<string | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
+  useEffect(() => { let active = true; void Promise.all([fetch("/api/projects?limit=3", { cache: "no-store" }), fetch("/api/profile", { cache: "no-store" }), fetch("/api/auth/me", { cache: "no-store" })]).then(async ([projectResponse, profileResponse, meResponse]) => { const projectData = await projectResponse.json(); const profileData = await profileResponse.json(); const meData = await meResponse.json(); if (!projectResponse.ok) throw new Error(projectData.message ?? "Projects unavailable."); if (!active) return; setProjects(projectData.projects ?? []); setProfileName(meData.user?.fullName ?? ""); setProfilePhoto(profileData.profile?.photoUrl ?? null); const profile = profileData.profile; if (profile) { const fields = [profile.bio, profile.photoUrl, profile.coverUrl, profile.skills?.length, profile.interests?.length, profile.portfolioUrl, profile.linkedinUrl, profile.githubUrl]; setCompletion(Math.round(fields.filter(Boolean).length / fields.length * 100)); } }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Sidebar data unavailable."); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
+  return <aside className="space-y-5">
+    <div className="surface-card spotlight-card reveal-item p-4"><div className="flex items-center gap-3"><LuminousAvatar name={profileName} photoUrl={profilePhoto} size="md" /><div><h3 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Your profile</h3><p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>Profile completion</p></div><AnimatedCompletion value={completion} /></div><ActionControl href="/profile" variant="secondary" className="mt-3 w-full">Edit profile</ActionControl></div>
+    <div className="surface-card spotlight-card reveal-item p-4"><div className="flex items-center justify-between"><h3 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Project highlights</h3><ActionControl href={dashboardRouteDestinations.projects} variant="tertiary">View all</ActionControl></div>{loading ? <div className="mt-3 space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-4/5" /><Skeleton className="h-10 w-3/5" /></div> : error ? <p className="mt-3 text-xs" style={{ color: "var(--danger)" }}>{error}</p> : projects.length === 0 ? <p className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>No open projects yet.</p> : <div className="mt-3 divide-y" style={{ borderColor: "var(--border)" }}>{projects.map((project) => <Link key={project.id} href={`/projects?project=${encodeURIComponent(project.id)}`} className="reveal-item block py-3 first:pt-2 last:pb-0"><p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>{project.title}</p><p className="mt-1 text-[11px]" style={{ color: "var(--text-secondary)" }}>{project.category} · {project._count.members} members</p></Link>)}</div>}</div>
+    <div className="surface-card p-4"><h3 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Campus discovery</h3><p className="mt-2 text-[13px] leading-5" style={{ color: "var(--text-secondary)" }}>Find communities, explore student work and connect with university members.</p><ActionControl href={dashboardRouteDestinations.opportunities} variant="tertiary" className="mt-3">Explore opportunities</ActionControl></div>
+  </aside>;
+}

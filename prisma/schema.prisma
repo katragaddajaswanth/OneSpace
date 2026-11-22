@@ -1,0 +1,1174 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =====================================================
+// ENUMS
+// =====================================================
+
+enum PrimaryRole {
+  STUDENT
+  FACULTY
+  ALUMNI
+  PROSPECTIVE_STUDENT
+}
+
+enum SecondaryRole {
+  MENTOR
+  ADMINISTRATOR
+  PLACEMENT_OFFICER
+  INDUSTRY_REPRESENTATIVE
+  PROCTOR
+  PROJECT_ANALYSIS_CREW
+}
+
+enum AccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  RESTRICTED
+  DISABLED
+}
+
+enum ERPAccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  NOT_FOUND
+  UNKNOWN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  INACTIVE
+  SUSPENDED
+  NOT_FOUND
+  FAILED
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum AuthEventType {
+  REGISTRATION
+  EMAIL_VERIFIED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_CHANGED
+  ACCOUNT_RESTRICTED
+  PROSPECTIVE_CONVERTED
+}
+
+// CAREER & OPPORTUNITIES ENUMS
+
+enum OpportunityType {
+  JOB
+  INTERNSHIP
+  REFERRAL
+  FREELANCE
+  COLLABORATION
+  LIVE_PROJECT
+  CHALLENGE
+  RESEARCH
+}
+
+enum OpportunityStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum OpportunitySubmitterRole {
+  ALUMNI
+  INDUSTRY_REPRESENTATIVE
+}
+
+enum CompensationType {
+  PAID
+  UNPAID
+  NOT_SPECIFIED
+}
+
+enum WorkMode {
+  REMOTE
+  HYBRID
+  ON_SITE
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  INTERVIEW
+  SELECTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum OpportunityNotificationType {
+  OPPORTUNITY_APPROVED
+  OPPORTUNITY_REJECTED
+  APPLICATION_RECEIVED
+  APPLICATION_STATUS_UPDATED
+  NEW_MATCHING_OPPORTUNITY
+}
+
+enum ProfileVisibility {
+  PRIVATE
+  UNIVERSITY
+  PUBLIC
+}
+
+enum ProfileCorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VerificationRecordStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PostVisibility {
+  UNIVERSITY
+  CONNECTIONS
+  PRIVATE
+}
+
+enum PostStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REMOVED
+}
+
+enum ModerationReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+}
+
+enum ConnectionRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ProjectLifecycleStatus {
+  DRAFT
+  PENDING_PROCTOR_APPROVAL
+  REJECTED
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectJoinStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ProjectReviewStatus {
+  ACCEPTED
+  NEEDS_CHANGES
+}
+
+enum CommunityStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum CommunityPrivacy {
+  OPEN
+  APPROVAL_REQUIRED
+}
+
+enum CommunityMembershipStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MentorshipRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum MentorshipRelationshipStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ProfilePortfolioType {
+  ACHIEVEMENT
+  PROJECT
+  LINK
+}
+
+// =====================================================
+// UNIVERSITY
+// =====================================================
+
+model University {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  emailDomain String?
+  website     String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  departments Department[]
+
+  // Career & Opportunities
+  opportunities Opportunity[]
+  posts         UniversityPost[]
+  projects      Project[]
+  communities   Community[]
+}
+
+// =====================================================
+// DEPARTMENT
+// =====================================================
+
+model Department {
+  id           String  @id @default(cuid())
+  name         String
+  code         String?
+  universityId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  programs Program[]
+  users    User[]
+
+  @@unique([universityId, name])
+  @@unique([universityId, code])
+  @@unique([id, universityId])
+}
+
+// =====================================================
+// PROGRAM
+// =====================================================
+
+model Program {
+  id           String  @id @default(cuid())
+  name         String
+  code         String?
+  departmentId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  users User[]
+
+  @@unique([departmentId, name])
+  @@unique([departmentId, code])
+  @@unique([id, departmentId])
+}
+
+// =====================================================
+// USER
+// =====================================================
+
+model User {
+  id              String  @id @default(cuid())
+  institutionalId String?
+  fullName        String
+  email           String  @unique
+  passwordHash    String?
+
+  primaryRole   PrimaryRole
+  accountStatus AccountStatus @default(PENDING_VERIFICATION)
+  emailVerified Boolean       @default(false)
+
+  universityId String?
+  departmentId String?
+  programId    String?
+
+  university University? @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  department Department? @relation(fields: [departmentId, universityId], references: [id, universityId], onDelete: Restrict)
+
+  program Program? @relation(fields: [programId, departmentId], references: [id, departmentId], onDelete: Restrict)
+
+  secondaryRoles UserRole[]
+
+  studentProfile StudentProfile?
+  facultyProfile FacultyProfile?
+
+  erpVerifications ERPVerification[]
+
+  // Authentication relations
+  otpChallenges EmailOtpChallenge[]
+  sessions      UserSession[]
+  authAuditLogs AuthAuditLog[]
+
+  // Career & Opportunities relations
+  submittedOpportunities   Opportunity[]             @relation("OpportunitySubmitter")
+  reviewedApprovals        OpportunityApproval[]     @relation("OpportunityReviewer")
+  opportunityApplications  OpportunityApplication[]
+  savedOpportunities       SavedOpportunity[]
+  opportunityNotifications OpportunityNotification[]
+
+  // Remaining prototype modules
+  unifiedProfile         UnifiedProfile?
+  certifications         ProfileCertification[]      @relation("CertificationOwner")
+  certificationsVerified ProfileCertification[]      @relation("CertificationVerifier")
+  profileAchievements    ProfilePortfolioItem[]
+  profileCorrections     ProfileCorrection[]         @relation("CorrectionOwner")
+  correctionsReviewed    ProfileCorrection[]         @relation("CorrectionReviewer")
+  skillVerifications     ProfileSkillVerification[]  @relation("SkillOwner")
+  skillsVerified         ProfileSkillVerification[]  @relation("SkillVerifier")
+  authoredPosts          UniversityPost[]            @relation("PostAuthor")
+  moderatedPosts         UniversityPost[]            @relation("PostModerator")
+  postLikes              PostLike[]
+  postComments           PostComment[]
+  postReports            PostReport[]                @relation("ReportAuthor")
+  reportsReviewed        PostReport[]                @relation("ReportReviewer")
+  conversationsAsA       Conversation[]              @relation("ConversationUserA")
+  conversationsAsB       Conversation[]              @relation("ConversationUserB")
+  sentMessages           DirectMessage[]
+  sentInvitations        ConnectionInvitation[]      @relation("InvitationSender")
+  receivedInvitations    ConnectionInvitation[]      @relation("InvitationRecipient")
+  connectionsAsA         UserConnection[]            @relation("ConnectionUserA")
+  connectionsAsB         UserConnection[]            @relation("ConnectionUserB")
+  ledProjects            Project[]                   @relation("ProjectLead")
+  projectMemberships     ProjectMember[]
+  projectJoinRequests    ProjectJoinRequest[]
+  projectReviews         ProjectEvaluation[]
+  revaluationRequests    ProjectRevaluationRequest[] @relation("RevaluationRequester")
+  revaluationsReviewed   ProjectRevaluationRequest[] @relation("RevaluationReviewer")
+  projectSubmissions     ProjectSubmission[]
+  createdCommunities     Community[]                 @relation("CommunityCreator")
+  communitiesReviewed    Community[]                 @relation("CommunityReviewer")
+  communityMemberships   CommunityMembership[]
+  communityPosts         CommunityPost[]
+  mentorProfile          MentorProfile?
+  mentorshipRequests     MentorshipRequest[]         @relation("MenteeRequests")
+  mentorshipsAsMentee    MentorshipRelationship[]    @relation("MenteeRelationships")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([universityId, institutionalId])
+  @@index([universityId])
+  @@index([departmentId])
+  @@index([programId])
+  @@index([primaryRole])
+  @@index([accountStatus])
+}
+
+// =====================================================
+// SECONDARY USER ROLES
+// =====================================================
+
+model UserRole {
+  id         String        @id @default(cuid())
+  userId     String
+  role       SecondaryRole
+  assignedAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+// =====================================================
+// STUDENT PROFILE
+// =====================================================
+
+model StudentProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  admissionYear   Int?
+  currentSemester Int?
+  batch           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =====================================================
+// FACULTY PROFILE
+// =====================================================
+
+model FacultyProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  designation     String?
+  specialization  String?
+  experienceYears Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =====================================================
+// ERP VERIFICATION HISTORY
+// =====================================================
+
+model ERPVerification {
+  id        String             @id @default(cuid())
+  userId    String
+  status    VerificationStatus
+  erpStatus ERPAccountStatus?
+  source    String?
+
+  checkedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, checkedAt])
+}
+
+// =====================================================
+// EMAIL OTP CHALLENGES
+// =====================================================
+
+model EmailOtpChallenge {
+  id       String     @id @default(cuid())
+  userId   String
+  email    String
+  codeHash String
+  purpose  OtpPurpose
+
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+
+  consumedAt DateTime?
+  lockedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@index([expiresAt])
+}
+
+// =====================================================
+// USER SESSIONS
+// =====================================================
+
+model UserSession {
+  id        String @id @default(cuid())
+  userId    String
+  tokenHash String @unique
+
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+// =====================================================
+// AUTHENTICATION AUDIT LOGS
+// =====================================================
+
+model AuthAuditLog {
+  id     String        @id @default(cuid())
+  userId String?
+  event  AuthEventType
+
+  ipHash    String?
+  userAgent String?
+  details   Json?
+
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
+}
+
+// =====================================================
+// CAREER & OPPORTUNITIES
+// =====================================================
+
+model Opportunity {
+  id            String @id @default(cuid())
+  universityId  String
+  submittedById String
+
+  title        String
+  organization String
+  description  String
+
+  type             OpportunityType
+  submitterRole    OpportunitySubmitterRole
+  compensationType CompensationType         @default(NOT_SPECIFIED)
+
+  location       String?
+  workMode       WorkMode @default(REMOTE)
+  eligibility    String
+  requiredSkills String?
+
+  applicationDeadline DateTime
+  applicationUrl      String?
+
+  status      OpportunityStatus @default(PENDING)
+  publishedAt DateTime?
+  closedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  university University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  submitter User @relation("OpportunitySubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+
+  approvalHistory OpportunityApproval[]
+  applications    OpportunityApplication[]
+  savedBy         SavedOpportunity[]
+  notifications   OpportunityNotification[]
+
+  @@index([universityId, status, createdAt])
+  @@index([submittedById, createdAt])
+  @@index([type, status])
+  @@index([applicationDeadline])
+}
+
+// =====================================================
+// OPPORTUNITY APPROVAL HISTORY
+// =====================================================
+
+model OpportunityApproval {
+  id            String @id @default(cuid())
+  opportunityId String
+  reviewerId    String
+
+  decision ApprovalDecision
+  reason   String?
+
+  reviewedAt DateTime @default(now())
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  reviewer User @relation("OpportunityReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([opportunityId, reviewedAt])
+  @@index([reviewerId, reviewedAt])
+}
+
+// =====================================================
+// STUDENT OPPORTUNITY APPLICATIONS
+// =====================================================
+
+model OpportunityApplication {
+  id            String @id @default(cuid())
+  opportunityId String
+  studentId     String
+
+  message   String?
+  resumeUrl String?
+
+  status ApplicationStatus @default(APPLIED)
+
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, studentId])
+  @@index([studentId, appliedAt])
+  @@index([opportunityId, status])
+}
+
+// =====================================================
+// SAVED OPPORTUNITIES
+// =====================================================
+
+model SavedOpportunity {
+  id            String @id @default(cuid())
+  opportunityId String
+  studentId     String
+
+  savedAt DateTime @default(now())
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, studentId])
+  @@index([studentId, savedAt])
+}
+
+// =====================================================
+// OPPORTUNITY NOTIFICATIONS
+// =====================================================
+
+model OpportunityNotification {
+  id            String @id @default(cuid())
+  recipientId   String
+  opportunityId String
+
+  type    OpportunityNotificationType
+  title   String
+  message String
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt])
+  @@index([opportunityId])
+}
+
+// =====================================================
+// UNIVERSITY PROFILES
+// =====================================================
+
+model UnifiedProfile {
+  id           String            @id @default(cuid())
+  userId       String            @unique
+  bio          String            @default("")
+  photoUrl     String?
+  coverUrl     String?
+  skills       String[]          @default([])
+  interests    String[]          @default([])
+  portfolioUrl String?
+  linkedinUrl  String?
+  githubUrl    String?
+  visibility   ProfileVisibility @default(UNIVERSITY)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experiences        ProfileExperience[]
+  certifications     ProfileCertification[]
+  achievements       ProfilePortfolioItem[]
+  corrections        ProfileCorrection[]
+  skillVerifications ProfileSkillVerification[]
+  mentorProfile      MentorProfile?
+
+  @@index([visibility, updatedAt])
+}
+
+model ProfileExperience {
+  id           String    @id @default(cuid())
+  profileId    String
+  organization String
+  title        String
+  description  String    @default("")
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime  @default(now())
+
+  profile UnifiedProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, startedAt])
+}
+
+model ProfileCertification {
+  id            String                   @id @default(cuid())
+  profileId     String
+  ownerId       String
+  title         String
+  issuer        String
+  credentialUrl String?
+  issuedAt      DateTime?
+  status        VerificationRecordStatus @default(PENDING)
+  verifiedById  String?
+  verifiedAt    DateTime?
+  createdAt     DateTime                 @default(now())
+
+  profile    UnifiedProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  owner      User           @relation("CertificationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  verifiedBy User?          @relation("CertificationVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, status, createdAt])
+}
+
+model ProfilePortfolioItem {
+  id           String               @id @default(cuid())
+  profileId    String
+  userId       String
+  type         ProfilePortfolioType
+  title        String
+  description  String               @default("")
+  url          String?
+  verifiedAt   DateTime?
+  verifiedById String?
+  createdAt    DateTime             @default(now())
+
+  profile UnifiedProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+}
+
+model ProfileCorrection {
+  id            String                  @id @default(cuid())
+  profileId     String
+  userId        String
+  field         String
+  proposedValue String
+  status        ProfileCorrectionStatus @default(PENDING)
+  reason        String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime                @default(now())
+
+  profile    UnifiedProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user       User           @relation("CorrectionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User?          @relation("CorrectionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model ProfileSkillVerification {
+  id         String                   @id @default(cuid())
+  profileId  String
+  userId     String
+  skill      String
+  status     VerificationRecordStatus @default(PENDING)
+  verifierId String?
+  verifiedAt DateTime?
+  createdAt  DateTime                 @default(now())
+
+  profile  UnifiedProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user     User           @relation("SkillOwner", fields: [userId], references: [id], onDelete: Cascade)
+  verifier User?          @relation("SkillVerifier", fields: [verifierId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, skill])
+  @@index([status, createdAt])
+}
+
+// =====================================================
+// UNIVERSITY SOCIAL FEED
+// =====================================================
+
+model UniversityPost {
+  id                      String         @id @default(cuid())
+  authorId                String
+  universityId            String
+  content                 String
+  attachments             Json           @default("[]")
+  visibility              PostVisibility @default(UNIVERSITY)
+  status                  PostStatus     @default(PENDING)
+  requiresProctorApproval Boolean        @default(true)
+  moderatorId             String?
+  moderationNote          String?
+  moderatedAt             DateTime?
+  sharedPostId            String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  author     User             @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  university University       @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  moderator  User?            @relation("PostModerator", fields: [moderatorId], references: [id], onDelete: SetNull)
+  sharedPost UniversityPost?  @relation("PostShares", fields: [sharedPostId], references: [id], onDelete: SetNull)
+  shares     UniversityPost[] @relation("PostShares")
+  likes      PostLike[]
+  comments   PostComment[]
+  reports    PostReport[]
+
+  @@index([universityId, status, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model PostLike {
+  id        String    @id @default(cuid())
+  postId    String
+  userId    String
+  removedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  post UniversityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model PostComment {
+  id        String    @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  post UniversityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model PostReport {
+  id           String                 @id @default(cuid())
+  postId       String
+  reporterId   String
+  reason       String
+  status       ModerationReportStatus @default(PENDING)
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime               @default(now())
+
+  post       UniversityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter   User           @relation("ReportAuthor", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewedBy User?          @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([postId, reporterId])
+  @@index([status, createdAt])
+}
+
+// =====================================================
+// CONNECTIONS AND DIRECT MESSAGES
+// =====================================================
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userA       User                   @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB       User                   @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages    DirectMessage[]
+  invitations ConnectionInvitation[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId, updatedAt])
+  @@index([userBId, updatedAt])
+}
+
+model DirectMessage {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  invitation   ConnectionInvitation? @relation("InvitationMessage")
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model ConnectionInvitation {
+  id               String                  @id @default(cuid())
+  senderId         String
+  recipientId      String
+  conversationId   String
+  initialMessageId String                  @unique
+  status           ConnectionRequestStatus @default(PENDING)
+  createdAt        DateTime                @default(now())
+  respondedAt      DateTime?
+
+  sender         User          @relation("InvitationSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient      User          @relation("InvitationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  initialMessage DirectMessage @relation("InvitationMessage", fields: [initialMessageId], references: [id], onDelete: Restrict)
+
+  @@index([recipientId, status, createdAt])
+  @@index([senderId, status, createdAt])
+}
+
+model UserConnection {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("ConnectionUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("ConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userBId, createdAt])
+}
+
+// =====================================================
+// PROJECT NEXUS
+// =====================================================
+
+model Project {
+  id                String                 @id @default(cuid())
+  universityId      String
+  leadId            String
+  title             String
+  description       String
+  category          String
+  theme             String
+  problemStatement  String
+  requiredSkills    String[]               @default([])
+  objectives        String                 @default("")
+  outcomes          String                 @default("")
+  visibility        PostVisibility         @default(UNIVERSITY)
+  coverImageUrl     String?
+  status            ProjectLifecycleStatus @default(DRAFT)
+  proctorId         String?
+  proctorNote       String?
+  proctorReviewedAt DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  university          University                  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  lead                User                        @relation("ProjectLead", fields: [leadId], references: [id], onDelete: Restrict)
+  members             ProjectMember[]
+  joinRequests        ProjectJoinRequest[]
+  evaluations         ProjectEvaluation[]
+  revaluationRequests ProjectRevaluationRequest[]
+  submissions         ProjectSubmission[]
+
+  @@unique([universityId, title])
+  @@index([universityId, status, createdAt])
+  @@index([leadId, createdAt])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId, joinedAt])
+}
+
+model ProjectJoinRequest {
+  id          String            @id @default(cuid())
+  projectId   String
+  userId      String
+  message     String            @default("")
+  status      ProjectJoinStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  respondedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId, status, createdAt])
+}
+
+model ProjectEvaluation {
+  id         String              @id @default(cuid())
+  projectId  String
+  reviewerId String
+  status     ProjectReviewStatus
+  score      Int?
+  feedback   String
+  createdAt  DateTime            @default(now())
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewer User    @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, createdAt])
+  @@index([reviewerId, createdAt])
+}
+
+model ProjectRevaluationRequest {
+  id          String            @id @default(cuid())
+  projectId   String
+  requesterId String
+  reason      String
+  status      ProjectJoinStatus @default(PENDING)
+  reviewerId  String?
+  reviewNote  String?
+  createdAt   DateTime          @default(now())
+  reviewedAt  DateTime?
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requester User    @relation("RevaluationRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  reviewer  User?   @relation("RevaluationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, requesterId, createdAt])
+}
+
+model ProjectSubmission {
+  id            String   @id @default(cuid())
+  projectId     String
+  submittedById String
+  title         String
+  description   String
+  url           String?
+  createdAt     DateTime @default(now())
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  submittedBy User    @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+// =====================================================
+// COMMUNITIES AND CLUBS
+// =====================================================
+
+model Community {
+  id           String           @id @default(cuid())
+  universityId String
+  createdById  String
+  name         String
+  description  String
+  category     String
+  tags         String[]         @default([])
+  privacy      CommunityPrivacy @default(OPEN)
+  status       CommunityStatus  @default(PENDING)
+  reviewedById String?
+  reviewNote   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  university  University            @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  creator     User                  @relation("CommunityCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewer    User?                 @relation("CommunityReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  memberships CommunityMembership[]
+  posts       CommunityPost[]
+
+  @@unique([universityId, name])
+  @@index([universityId, status, category])
+  @@index([createdById, createdAt])
+}
+
+model CommunityMembership {
+  id          String                    @id @default(cuid())
+  communityId String
+  userId      String
+  status      CommunityMembershipStatus @default(PENDING)
+  requestedAt DateTime                  @default(now())
+  respondedAt DateTime?
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([userId, status, requestedAt])
+  @@index([communityId, status, requestedAt])
+}
+
+model CommunityPost {
+  id          String    @id @default(cuid())
+  communityId String
+  authorId    String
+  content     String
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([communityId, createdAt])
+}
+
+// =====================================================
+// MENTORSHIP
+// =====================================================
+
+model MentorProfile {
+  id                String   @id @default(cuid())
+  profileId         String   @unique
+  userId            String   @unique
+  enabled           Boolean  @default(false)
+  bio               String   @default("")
+  expertise         String[] @default([])
+  eligibleSemesters Int[]    @default([])
+  available         Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  profile               UnifiedProfile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestsReceived      MentorshipRequest[]      @relation("MentorRequests")
+  relationshipsAsMentor MentorshipRelationship[] @relation("MentorRelationships")
+
+  @@index([enabled, available])
+}
+
+model MentorshipRequest {
+  id          String                  @id @default(cuid())
+  mentorId    String
+  menteeId    String
+  message     String
+  goal        String
+  status      MentorshipRequestStatus @default(PENDING)
+  createdAt   DateTime                @default(now())
+  respondedAt DateTime?
+
+  mentor       MentorProfile           @relation("MentorRequests", fields: [mentorId], references: [id], onDelete: Cascade)
+  mentee       User                    @relation("MenteeRequests", fields: [menteeId], references: [id], onDelete: Cascade)
+  relationship MentorshipRelationship?
+
+  @@unique([mentorId, menteeId])
+  @@index([mentorId, status, createdAt])
+  @@index([menteeId, status, createdAt])
+}
+
+model MentorshipRelationship {
+  id        String                       @id @default(cuid())
+  mentorId  String
+  menteeId  String
+  requestId String                       @unique
+  status    MentorshipRelationshipStatus @default(ACTIVE)
+  startedAt DateTime                     @default(now())
+  endedAt   DateTime?
+
+  mentor  MentorProfile     @relation("MentorRelationships", fields: [mentorId], references: [id], onDelete: Cascade)
+  mentee  User              @relation("MenteeRelationships", fields: [menteeId], references: [id], onDelete: Cascade)
+  request MentorshipRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([mentorId, status])
+  @@index([menteeId, status])
+}

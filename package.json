@@ -6,21 +6,36 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "seed:alumni-test": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs ./scripts/create-alumni-test-account.ts",
+    "seed:admin-test": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs ./scripts/create-admin-test-account.ts",
+    "set:alumni-test-password": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs ./scripts/set-alumni-test-password.ts",
+    "seed:demo": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs ./scripts/seed-demo-environment.ts",
+    "test:gmail-smtp": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs ./scripts/gmail-smtp-test.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@prisma/adapter-neon": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.10",
     "next": "16.4.6",
+    "nodemailer": "^7.0.12",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "prisma": "^7.10.1",
     "tailwindcss": "4.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.12"
   }
 }
