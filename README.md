@@ -154,13 +154,13 @@ Centralized institutional governance.
 
 ---
 
-## ◈ Platform Architecture
+## 🏛️ Platform Architecture
 
 ONE-SPACE follows a modular application architecture built around Next.js and PostgreSQL.
 
 ### High-Level Architecture
 
-
+```mermaid
 flowchart TB
     U["University Community"]
 
@@ -185,6 +185,7 @@ flowchart TB
     MOD --> DB["PostgreSQL Database"]
     AUTH --> DB
     ERP --> MOCK["Mock ERP Adapter"]
+```
 
 
 ### Authentication & Authorization
