@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireUniversityUser, requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, pageInfo, parsePage, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const parsed = await readJsonObject(request);
     if (parsed.response) return parsed.response;

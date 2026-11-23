@@ -1,37 +1,15 @@
 import "server-only";
 
-import { createHash } from "crypto";
-import { cookies } from "next/headers";
 import type { SecondaryRole } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+import { isReadOnlyDemoUser } from "@/lib/demo-protection";
+import { getAuthenticatedSession } from "@/lib/auth-session";
 
 const SESSION_COOKIE_NAME = "one_space_session";
 
-const authenticatedUserInclude = {
-  university: {
-    select: { id: true, name: true, slug: true },
-  },
-  department: {
-    select: { id: true, name: true, code: true },
-  },
-  program: {
-    select: { id: true, name: true, code: true },
-  },
-  studentProfile: {
-    select: { admissionYear: true, currentSemester: true, batch: true },
-  },
-  facultyProfile: {
-    select: { designation: true, specialization: true, experienceYears: true },
-  },
-  secondaryRoles: {
-    select: { role: true },
-  },
-} as const;
+import { AuthenticatedUser as SessionAuthenticatedUser } from "@/lib/auth-session";
 
-export type AuthenticatedUser = Prisma.UserGetPayload<{
-  include: typeof authenticatedUserInclude;
-}>;
+export type AuthenticatedUser = SessionAuthenticatedUser;
 
 export type UniversityAuthenticatedUser = AuthenticatedUser & {
   universityId: string;
@@ -41,53 +19,10 @@ export type AuthorizationResult<TUser> =
   | { user: TUser; response?: never }
   | { user?: never; response: Response };
 
-type AuthenticationResult =
-  | { user: AuthenticatedUser; failure?: never }
-  | { user?: never; failure: "missing" | "invalid" };
+export { getAuthenticatedSession };
 
-export async function getAuthenticatedSession(
-  request?: Request
-): Promise<AuthenticationResult> {
-  const token = request
-    ? request.headers
-        .get("cookie")
-        ?.split(";")
-        .map((item) => item.trim())
-        .find((item) => item.startsWith(`${SESSION_COOKIE_NAME}=`))
-        ?.slice(SESSION_COOKIE_NAME.length + 1)
-    : (await cookies()).get(SESSION_COOKIE_NAME)?.value;
-
-  if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
-    return { failure: "missing" };
-  }
-
-  const tokenHash = createHash("sha256").update(token).digest("hex");
-  const session = await prisma.userSession.findUnique({
-    where: { tokenHash },
-    include: { user: { include: authenticatedUserInclude } },
-  });
-
-  if (
-    !session ||
-    session.revokedAt ||
-    session.expiresAt <= new Date() ||
-    session.user.accountStatus !== "ACTIVE" ||
-    !session.user.emailVerified
-  ) {
-    return { failure: "invalid" };
-  }
-
-  await prisma.userSession.update({
-    where: { id: session.id },
-    data: { lastUsedAt: new Date() },
-  });
-
-  return { user: session.user };
-}
-
-/** Reads and verifies the current database-backed session from the request cookie. */
 export async function getAuthenticatedUser(
-  request?: Request
+  request?: Request,
 ): Promise<AuthenticatedUser | null> {
   const session = await getAuthenticatedSession(request);
   return session.failure ? null : session.user;
@@ -109,7 +44,7 @@ export async function requireAuthenticatedUser(request?: Request): Promise<
               ? "Authentication required."
               : "Session is invalid or expired.",
         },
-        { status: 401 }
+        { status: 401 },
       ),
     };
   }
@@ -119,7 +54,7 @@ export async function requireAuthenticatedUser(request?: Request): Promise<
 
 /** Requires a valid session and university membership from the database user. */
 export async function requireUniversityUser(
-  request?: Request
+  request?: Request,
 ): Promise<AuthorizationResult<UniversityAuthenticatedUser>> {
   const authenticated = await requireAuthenticatedUser(request);
   if (authenticated.response) return authenticated;
@@ -127,10 +62,7 @@ export async function requireUniversityUser(
   const { user } = authenticated;
   if (!user.universityId) {
     return {
-      response: Response.json(
-        { success: false, message: "University membership is required." },
-        { status: 403 }
-      ),
+      response: Response.json({ success: false, message: "University membership is required." }, { status: 403 }),
     };
   }
 
@@ -141,7 +73,7 @@ export async function requireUniversityUser(
 export async function requireRoles(
   allowedRoles: readonly (SecondaryRole | AuthenticatedUser["primaryRole"])[],
   message = "You do not have permission to perform this action.",
-  request?: Request
+  request?: Request,
 ): Promise<
   | { user: AuthenticatedUser; response?: never }
   | { user?: never; response: Response }
@@ -153,16 +85,13 @@ export async function requireRoles(
   const hasRole = allowedRoles.some(
     (role) =>
       user.primaryRole === role ||
-      user.secondaryRoles.some((assignedRole) => assignedRole.role === role)
+      user.secondaryRoles.some((assignedRole) => assignedRole.role === role),
   );
 
   if (hasRole) return authenticated;
 
   return {
-    response: Response.json(
-      { success: false, message },
-      { status: 403 }
-    ),
+    response: Response.json({ success: false, message }, { status: 403 }),
   };
 }
 
@@ -170,7 +99,7 @@ export async function requireRoles(
 export async function requireUniversityRoles(
   allowedRoles: readonly (SecondaryRole | AuthenticatedUser["primaryRole"])[],
   message = "You do not have permission to perform this action.",
-  request?: Request
+  request?: Request,
 ): Promise<AuthorizationResult<UniversityAuthenticatedUser>> {
   const authorized = await requireRoles(allowedRoles, message, request);
   if (authorized.response) return authorized;
@@ -178,10 +107,7 @@ export async function requireUniversityRoles(
   const { user } = authorized;
   if (!user.universityId) {
     return {
-      response: Response.json(
-        { success: false, message: "University membership is required." },
-        { status: 403 }
-      ),
+      response: Response.json({ success: false, message: "University membership is required." }, { status: 403 }),
     };
   }
 
@@ -193,10 +119,60 @@ export async function requireUniversityRoles(
  * and its submitter inside the authenticated user's university.
  */
 export function opportunityUniversityScope(
-  user: UniversityAuthenticatedUser
+  user: UniversityAuthenticatedUser,
 ): Prisma.OpportunityWhereInput {
   return {
     universityId: user.universityId,
     submitter: { is: { universityId: user.universityId } },
   };
+}
+
+export function isDemoUniversityUser(user: AuthenticatedUser): boolean {
+  return isReadOnlyDemoUser(user);
+}
+
+export async function requireWritableUniversity(
+  request?: Request,
+): Promise<AuthorizationResult<UniversityAuthenticatedUser>> {
+  const authorized = await requireUniversityUser(request);
+  if (authorized.response) return authorized;
+
+  if (isDemoUniversityUser(authorized.user)) {
+    return {
+      response: Response.json(
+        {
+          success: false,
+          message: "This is a read-only demonstration account.",
+          code: "DEMO_READ_ONLY",
+        },
+        { status: 403, headers: { "Cache-Control": "private, no-store" } },
+      ),
+    };
+  }
+
+  return authorized;
+}
+
+export async function requireWritableUniversityRoles(
+  allowedRoles: readonly (SecondaryRole | AuthenticatedUser["primaryRole"])[],
+  message = "You do not have permission to perform this action.",
+  request?: Request,
+): Promise<AuthorizationResult<UniversityAuthenticatedUser>> {
+  const authorized = await requireWritableUniversity(request);
+  if (authorized.response) return authorized;
+
+  const { user } = authorized;
+  const hasRole = allowedRoles.some(
+    (role) =>
+      user.primaryRole === role ||
+      user.secondaryRoles.some((assignedRole) => assignedRole.role === role),
+  );
+
+  if (!hasRole) {
+    return {
+      response: Response.json({ success: false, message }, { status: 403, headers: { "Cache-Control": "private, no-store" } }),
+    };
+  }
+
+  return authorized;
 }

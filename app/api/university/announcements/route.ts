@@ -1,4 +1,4 @@
-import { requireUniversityRoles, requireUniversityUser } from "@/lib/auth";
+import { requireWritableUniversityRoles, requireUniversityUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   await connection();
   try {
-    const auth = await requireUniversityRoles(["ADMINISTRATOR", "PROCTOR"], "Administrator or Proctor authorization is required.", request);
+    const auth = await requireWritableUniversityRoles(["ADMINISTRATOR", "PROCTOR"], "Administrator or Proctor authorization is required.", request);
     if (auth.response) return auth.response;
     const parsed = await readJsonObject(request);
     if (parsed.response) return parsed.response;

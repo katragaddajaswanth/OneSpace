@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const post = await prisma.universityPost.findFirst({ where: { id, universityId: auth.user.universityId, status: "APPROVED" }, select: { id: true } });
@@ -26,7 +26,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const result = await prisma.postLike.updateMany({ where: { postId: id, userId: auth.user.id, removedAt: null, post: { universityId: auth.user.universityId } }, data: { removedAt: new Date() } });

@@ -1,4 +1,4 @@
-import { requireUniversityRoles } from "@/lib/auth";
+import { requireUniversityRoles, requireWritableUniversityRoles } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   await connection();
   try {
-    const auth = await requireUniversityRoles(["ADMINISTRATOR"] as const, "Administrator access is required.", request);
+    const auth = await requireWritableUniversityRoles(["ADMINISTRATOR"] as const, "Administrator access is required.", request);
     if (auth.response) return auth.response;
     const parsed = await readJsonObject(request);
     if (parsed.response) return parsed.response;

@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, hasSecondaryRole, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     if (auth.user.primaryRole === "PROSPECTIVE_STUDENT") return apiJson({ success: false, message: "Project evaluation is unavailable to prospective students." }, 403);
     if (!hasSecondaryRole(auth.user, "PROJECT_ANALYSIS_CREW")) return apiJson({ success: false, message: "Project Analysis Crew access is required." }, 403);
@@ -24,7 +24,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (!project) return apiJson({ success: false, message: "Project not found." }, 404);
     const evaluation = await prisma.$transaction(async (tx) => {
       const created = await tx.projectEvaluation.create({ data: { projectId: id, reviewerId: auth.user.id, status: status as "ACCEPTED" | "NEEDS_CHANGES", score, feedback } });
-      await tx.project.update({ where: { id }, data: { status: status === "ACCEPTED" ? "COMPLETED" : "IN_PROGRESS" } });
+      const projectUpdate = await tx.project.updateMany({
+        where: { id, universityId: auth.user.universityId, status: { in: ["OPEN", "IN_PROGRESS", "COMPLETED"] } },
+        data: { status: status === "ACCEPTED" ? "COMPLETED" : "IN_PROGRESS" },
+      });
+      if (projectUpdate.count !== 1) throw new Error("Project tenant or status changed");
       return created;
     });
     return apiJson({ success: true, evaluation }, 201);

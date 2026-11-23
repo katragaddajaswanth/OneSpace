@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({
   requireUniversityRoles: mocks.requireUniversityRoles,
+  requireWritableUniversityRoles: async (allowedRoles: readonly string[], message: string, req: Request) => {
+    // delegate to requireUniversityRoles mock to simulate auth
+    const result = await mocks.requireUniversityRoles(allowedRoles, message, req);
+    if (result.response) return result;
+    return { user: result.user };
+  },
 }));
 
 vi.mock("@/lib/prisma", () => ({

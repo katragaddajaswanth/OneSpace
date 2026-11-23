@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({
   requireUniversityUser: mocks.requireUniversityUser,
+  requireWritableUniversity: async (req: Request) => {
+    const result = await mocks.requireUniversityUser(req);
+    if (result.response) return result;
+    return { user: result.user };
+  },
   opportunityUniversityScope: mocks.opportunityUniversityScope,
 }));
 vi.mock("@/lib/prisma", () => ({

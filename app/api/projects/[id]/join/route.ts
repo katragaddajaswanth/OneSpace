@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     if (auth.user.primaryRole === "PROSPECTIVE_STUDENT") return apiJson({ success: false, message: "Project membership requests are unavailable to prospective students." }, 403);
     if (auth.user.primaryRole !== "STUDENT") return apiJson({ success: false, message: "Only students may request project membership." }, 403);

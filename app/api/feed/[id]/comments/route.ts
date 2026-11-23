@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireUniversityUser, requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, parsePage, pageInfo, readJsonObject, requiredText, rejectUnexpectedFields } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -27,7 +27,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);

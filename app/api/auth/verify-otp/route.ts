@@ -35,6 +35,12 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    if (user.isDemoAccount) {
+      return Response.json(
+        { success: false, message: "Read-only demonstration accounts cannot be activated through registration." },
+        { status: 403 }
+      );
+    }
 
     const verification = await verifyOtpChallenge(
       user.id,

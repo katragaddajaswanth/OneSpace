@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), userFindFirst: vi.fn(), transaction: vi.fn(), connection: vi.fn(), invitationFindFirst: vi.fn(), userConnectionFindFirst: vi.fn(), invitationCreate: vi.fn(), messageFindFirst: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ requireUniversityUser: mocks.auth }));
+vi.mock("@/lib/auth", () => ({
+  requireUniversityUser: mocks.auth,
+  requireWritableUniversity: async (request: Request) => {
+    const result = await mocks.auth(request);
+    if (result.response) return result;
+    return { user: result.user };
+  },
+}));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { findFirst: mocks.userFindFirst }, $transaction: mocks.transaction } }));
 vi.mock("next/server", () => ({ connection: mocks.connection }));
 import { POST } from "./route";

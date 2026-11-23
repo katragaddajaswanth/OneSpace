@@ -43,3 +43,12 @@ next-env.d.ts
 
 # Generated Prisma Client
 /generated/prisma/
+
+# Prisma tooling artefacts (not project source)
+/prisma/package.json
+/prisma/LICENSE
+/prisma/README.md
+/prisma/build/
+/prisma/dist/
+/prisma/preinstall/
+/prisma/scripts/

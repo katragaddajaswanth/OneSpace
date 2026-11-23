@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);
@@ -18,7 +18,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const requestRecord = await prisma.mentorshipRequest.findFirst({ where: { id, status: "PENDING", mentor: { userId: auth.user.id, user: { universityId: auth.user.universityId } } }, select: { id: true, mentorId: true, menteeId: true } });
     if (!requestRecord) return apiJson({ success: false, message: "Pending mentorship request not found." }, 404);
     await prisma.$transaction(async (tx) => {
-      const updated = await tx.mentorshipRequest.updateMany({ where: { id, status: "PENDING", mentor: { userId: auth.user.id } }, data: { status: decision === "ACCEPT" ? "ACCEPTED" : "REJECTED", respondedAt: new Date() } });
+      const updated = await tx.mentorshipRequest.updateMany({
+        where: { id, status: "PENDING", mentor: { userId: auth.user.id, user: { universityId: auth.user.universityId } } },
+        data: { status: decision === "ACCEPT" ? "ACCEPTED" : "REJECTED", respondedAt: new Date() },
+      });
       if (updated.count !== 1) throw new Error("Request already reviewed");
       if (decision === "ACCEPT") await tx.mentorshipRelationship.create({ data: { mentorId: requestRecord.mentorId, menteeId: requestRecord.menteeId, requestId: id } });
     });

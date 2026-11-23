@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function DELETE(request: Request, context: { params: Promise<{ id: string; postId: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id, postId } = await context.params;
     const result = await prisma.communityPost.updateMany({ where: { id: postId, communityId: id, authorId: auth.user.id, deletedAt: null, community: { universityId: auth.user.universityId } }, data: { deletedAt: new Date() } });

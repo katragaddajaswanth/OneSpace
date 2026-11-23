@@ -1,4 +1,4 @@
-import { requireUniversityRoles } from "@/lib/auth";
+import { requireWritableUniversityRoles } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityRoles(["ADMINISTRATOR"], "Administrator access is required.", request);
+    const auth = await requireWritableUniversityRoles(["ADMINISTRATOR"], "Administrator access is required.", request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);

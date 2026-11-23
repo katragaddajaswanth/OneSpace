@@ -1,5 +1,5 @@
 import { SecondaryRole } from "@/generated/prisma/enums";
-import { requireUniversityRoles } from "@/lib/auth";
+import { requireWritableUniversityRoles } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -7,7 +7,7 @@ import { connection } from "next/server";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityRoles(["ADMINISTRATOR"] as const, "Administrator access is required.", request);
+    const auth = await requireWritableUniversityRoles(["ADMINISTRATOR"] as const, "Administrator access is required.", request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     if (id === auth.user.id) return apiJson({ success: false, message: "Administrators cannot grant roles to themselves." }, 403);

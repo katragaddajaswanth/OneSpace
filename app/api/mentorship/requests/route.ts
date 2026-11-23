@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireUniversityUser, requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     if (auth.user.primaryRole === "PROSPECTIVE_STUDENT") return apiJson({ success: false, message: "Mentorship requests are available only to enrolled students." }, 403);
     if (auth.user.primaryRole !== "STUDENT") return apiJson({ success: false, message: "Only students may request mentorship." }, 403);

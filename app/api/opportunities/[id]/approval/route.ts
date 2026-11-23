@@ -1,4 +1,4 @@
-import { requireUniversityRoles } from "@/lib/auth";
+import { requireWritableUniversityRoles } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { connection } from "next/server";
 
@@ -63,7 +63,7 @@ export async function PATCH(request: Request, context: PatchContext) {
   await connection();
 
   try {
-    const authorization = await requireUniversityRoles(
+    const authorization = await requireWritableUniversityRoles(
       ["ADMINISTRATOR"],
       "Administrator access is required to review opportunities.",
       request

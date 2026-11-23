@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireUniversityUser, requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText, hasSecondaryRole } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -22,7 +22,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);
@@ -48,7 +48,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!["OPEN", "APPROVAL_REQUIRED"].includes(String(parsed.body.privacy))) return apiJson({ success: false, message: "Invalid privacy setting." }, 400);
       data.privacy = parsed.body.privacy;
     }
-    const community = await prisma.community.update({ where: { id }, data, select: { id: true, name: true, status: true } });
+    const updated = await prisma.community.updateMany({
+      where: { id, universityId: auth.user.universityId, createdById: auth.user.id, status: { in: ["PENDING", "REJECTED"] } },
+      data,
+    });
+    if (updated.count !== 1) return apiJson({ success: false, message: "Editable community submission not found." }, 404);
+    const community = await prisma.community.findFirst({
+      where: { id, universityId: auth.user.universityId, createdById: auth.user.id },
+      select: { id: true, name: true, status: true },
+    });
     return apiJson({ success: true, community });
   } catch {
     return apiJson({ success: false, message: "Community could not be updated." }, 500);

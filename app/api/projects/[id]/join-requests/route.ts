@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireUniversityUser, requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -22,7 +22,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);
@@ -35,7 +35,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const project = await prisma.project.findFirst({ where: { id, leadId: auth.user.id, universityId: auth.user.universityId, status: "OPEN" }, select: { id: true } });
     if (!project) return apiJson({ success: false, message: "Project not found." }, 404);
     await prisma.$transaction(async (tx) => {
-      const result = await tx.projectJoinRequest.updateMany({ where: { id: requestId, projectId: id, status: "PENDING" }, data: { status: decision === "ACCEPT" ? "ACCEPTED" : "REJECTED", respondedAt: new Date() } });
+      const result = await tx.projectJoinRequest.updateMany({
+        where: { id: requestId, projectId: id, status: "PENDING", project: { universityId: auth.user.universityId, leadId: auth.user.id } },
+        data: { status: decision === "ACCEPT" ? "ACCEPTED" : "REJECTED", respondedAt: new Date() },
+      });
       if (result.count !== 1) throw new Error("Join request already resolved");
       if (decision === "ACCEPT") {
         const joinRequest = await tx.projectJoinRequest.findUnique({ where: { id: requestId }, select: { userId: true } });

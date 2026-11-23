@@ -2,10 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { createAndSendOtp } from "@/lib/otp-service";
-import {
-  getERPAdapter,
-  ERPIntegrationNotConfiguredError,
-} from "@/modules/erp-integration";
+import { getERPAdapter, ERPIntegrationNotConfiguredError,  } from "@/modules/erp-integration";
 
 import type { ERPPrimaryRole } from "@/modules/erp-integration/types";
 
@@ -154,6 +151,12 @@ export async function POST(request: Request) {
       return Response.json(
         { success: false, message: "University registration is unavailable." },
         { status: 400 }
+      );
+    }
+    if (university.kind === "DEMO" || university.isReadOnlyDemo) {
+      return Response.json(
+        { success: false, message: "Registration is unavailable for this read-only demonstration university." },
+        { status: 403 }
       );
     }
 

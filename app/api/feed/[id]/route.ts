@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);
@@ -29,7 +29,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!["UNIVERSITY", "CONNECTIONS", "PRIVATE"].includes(String(parsed.body.visibility))) return apiJson({ success: false, message: "Unsupported visibility." }, 400);
       data.visibility = parsed.body.visibility as "UNIVERSITY" | "CONNECTIONS" | "PRIVATE";
     }
-    const post = await prisma.universityPost.update({ where: { id }, data, select: { id: true, status: true, updatedAt: true } });
+    const updated = await prisma.universityPost.updateMany({
+      where: { id, authorId: auth.user.id, universityId: auth.user.universityId, status: { in: ["PENDING", "APPROVED"] } },
+      data,
+    });
+    if (updated.count !== 1) return apiJson({ success: false, message: "Post not found." }, 404);
+    const post = await prisma.universityPost.findFirst({
+      where: { id, authorId: auth.user.id, universityId: auth.user.universityId },
+      select: { id: true, status: true, updatedAt: true },
+    });
     return apiJson({ success: true, post, message: "Edited post returned to moderation." });
   } catch {
     return apiJson({ success: false, message: "Post could not be updated." }, 500);
@@ -39,7 +47,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const result = await prisma.universityPost.updateMany({

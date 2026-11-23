@@ -1,4 +1,4 @@
-import { requireUniversityRoles } from "@/lib/auth";
+import { requireWritableUniversityRoles } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityRoles(["ADMINISTRATOR"] as const, "Administrator access is required.", request);
+    const auth = await requireWritableUniversityRoles(["ADMINISTRATOR"] as const, "Administrator access is required.", request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);
@@ -26,7 +26,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     await prisma.$transaction(async (tx) => {
       const updated = await tx.profileCorrection.updateMany({
-        where: { id, status: "PENDING" },
+        where: { id, status: "PENDING", profile: { user: { universityId: auth.user.universityId } } },
         data: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", reason, reviewedById: auth.user.id, reviewedAt: new Date() },
       });
       if (updated.count !== 1) throw new Error("Correction already reviewed");
@@ -34,9 +34,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
       const value = correction.proposedValue;
       if (correction.field === "fullName") {
-        await tx.user.update({ where: { id: correction.userId }, data: { fullName: value } });
+        await tx.user.update({ where: { id: correction.userId, universityId: auth.user.universityId }, data: { fullName: value } });
       } else if (correction.field === "institutionalId") {
-        await tx.user.update({ where: { id: correction.userId }, data: { institutionalId: value } });
+        await tx.user.update({ where: { id: correction.userId, universityId: auth.user.universityId }, data: { institutionalId: value } });
       } else if (correction.field === "departmentId" || correction.field === "programId") {
         // Relational academic corrections are recorded for manual review only;
         // they are not applied without an ERP-backed verification source.

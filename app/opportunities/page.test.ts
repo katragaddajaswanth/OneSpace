@@ -10,7 +10,7 @@ import {
   submitApplication,
   updateSavedOpportunity,
   validateOpportunitySubmission,
-} from "./page";
+} from "./opportunities-client";
 
 describe("Career opportunity discovery client", () => {
   it("reads the structured development diagnostic from a failed API response", async () => {

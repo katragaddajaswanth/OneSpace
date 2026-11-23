@@ -1,13 +1,10 @@
-import {
-  CompensationType,
-  OpportunityType,
-  WorkMode,
-} from "@/generated/prisma/enums";
+import { CompensationType, OpportunityType, WorkMode,  } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   opportunityUniversityScope,
   requireUniversityRoles,
   requireUniversityUser,
+  requireWritableUniversityRoles,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { serverErrorResponse } from "@/lib/server-error-logging";
@@ -476,7 +473,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const authorization = await requireUniversityRoles(
+    const authorization = await requireWritableUniversityRoles(
       ["ALUMNI", "INDUSTRY_REPRESENTATIVE"],
       "Only alumni and industry representatives may submit opportunities.",
       request

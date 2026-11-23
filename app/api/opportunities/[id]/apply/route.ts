@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { opportunityUniversityScope, requireUniversityUser } from "@/lib/auth";
+import { opportunityUniversityScope, requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { connection } from "next/server";
 
@@ -91,7 +91,7 @@ export async function POST(request: Request, context: ApplyContext) {
   await connection();
 
   try {
-    const authorization = await requireUniversityUser(request);
+    const authorization = await requireWritableUniversity(request);
     if (authorization.response) return authorization.response;
 
     const { user } = authorization;

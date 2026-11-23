@@ -7,6 +7,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UniversityKind {
+  REAL
+  DEMO
+}
+
 // =====================================================
 // ENUMS
 // =====================================================
@@ -239,6 +244,8 @@ model University {
   emailDomain String?
   website     String?
   isActive    Boolean @default(true)
+  kind        UniversityKind @default(REAL)
+  isReadOnlyDemo Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -308,6 +315,8 @@ model User {
   fullName        String
   email           String  @unique
   passwordHash    String?
+  isDemoAccount   Boolean @default(false)
+  demoSeedKey     String? @unique
 
   primaryRole   PrimaryRole
   accountStatus AccountStatus @default(PENDING_VERIFICATION)

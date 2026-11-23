@@ -1,4 +1,4 @@
-import { requireUniversityUser } from "@/lib/auth";
+import { requireUniversityUser, requireWritableUniversity } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiJson, readJsonObject, rejectUnexpectedFields, requiredText } from "@/lib/prototype-api";
 import { connection } from "next/server";
@@ -22,7 +22,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   await connection();
   try {
-    const auth = await requireUniversityUser(request);
+    const auth = await requireWritableUniversity(request);
     if (auth.response) return auth.response;
     const { id } = await context.params;
     const parsed = await readJsonObject(request);
@@ -60,7 +60,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (url !== null && url !== "" && (typeof url !== "string" || !/^https?:\/\//i.test(url) || url.length > 2048)) return apiJson({ success: false, message: "Cover image must be an HTTP or HTTPS URL." }, 400);
       data.coverImageUrl = url || null;
     }
-    const project = await prisma.project.update({ where: { id }, data, select: { id: true, title: true, status: true, updatedAt: true } });
+    const updated = await prisma.project.updateMany({
+      where: { id, leadId: auth.user.id, universityId: auth.user.universityId, status: { in: ["DRAFT", "REJECTED"] } },
+      data,
+    });
+    if (updated.count !== 1) return apiJson({ success: false, message: "Editable project draft not found." }, 404);
+    const project = await prisma.project.findFirst({
+      where: { id, leadId: auth.user.id, universityId: auth.user.universityId },
+      select: { id: true, title: true, status: true, updatedAt: true },
+    });
     return apiJson({ success: true, project });
   } catch {
     return apiJson({ success: false, message: "Project could not be updated." }, 500);

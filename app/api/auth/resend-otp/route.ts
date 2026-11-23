@@ -29,6 +29,12 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    if (user.isDemoAccount) {
+      return Response.json(
+        { success: false, message: "OTP resend is unavailable for read-only demonstration accounts." },
+        { status: 403 }
+      );
+    }
 
     const challenge = await prisma.emailOtpChallenge.findFirst({
       where: {
