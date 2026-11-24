@@ -1,5 +1,11 @@
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`skeleton ${className}`} />;
+  return (
+    <span
+      aria-hidden="true"
+      className={`skeleton ${className}`}
+      style={{ display: "block" }}
+    />
+  );
 }
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
